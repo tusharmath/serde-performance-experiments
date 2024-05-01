@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use serde::{Deserialize, Serialize};
-use serde_json::from_str;
+use serde_json::{from_str, to_string, to_value, Value};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Post {
@@ -10,20 +10,39 @@ pub struct Post {
     pub body: String,
 }
 
-fn deserialize_post(json: &str) -> Post {
+const POSTS_COUNT: usize = 100;
+
+fn setup_data() -> String {
+    let posts: Vec<Post> = (0..POSTS_COUNT)
+        .map(|i| Post {
+            user_id: i as i32,
+            id: i as i32,
+            title: format!("Title {}", i),
+            body: format!("Body of post {}", i),
+        })
+        .collect();
+
+    to_string(&posts).unwrap()
+}
+
+fn structured_de(json: &str) -> Value {
+    let posts: Vec<Post> = from_str(json).unwrap();
+    to_value(posts).unwrap()
+}
+
+fn unstructured_de(json: &str) -> Value {
     from_str(json).unwrap()
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let post_json = r#"{
-        "user_id": 1,
-        "id": 101,
-        "title": "Example Title",
-        "body": "This is the body of the post."
-    }"#;
+    let posts_json = setup_data();
 
-    c.bench_function("deserialize_post", |b| {
-        b.iter(|| deserialize_post(black_box(post_json)))
+    c.bench_function("structured_de", |b| {
+        b.iter(|| structured_de(black_box(&posts_json)))
+    });
+
+    c.bench_function("unstructured_de", |b| {
+        b.iter(|| unstructured_de(black_box(&posts_json)))
     });
 }
 
